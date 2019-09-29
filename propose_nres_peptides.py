@@ -7,7 +7,8 @@ import argparse
 
 # sys.path.insert(")
 # import make_all_nmer_substitutions as nmersub
-from make_all_nmer_substitutions import reverse_seq,translation,codon_table,tile_sequence,complement_seq
+# from make_all_nmer_substitutions import reverse_seq,translation,codon_table,tile_sequence,complement_seq
+from make_all_nmer_substitutions_copy_dev import reverse_seq,translation,codon_table,tile_sequence,complement_seq
 
 def import_sequence(infa,concat_seq=True):
     inseqname = []
@@ -100,11 +101,12 @@ def write_peptide_frames_old(peptide_array,name,lenfilter=10):
     outfile = open(name+".fa",'w')
     count = 0
     for i in peptide_array:
-        outfile.write(">"+name+"_"+str(count)+"\n")
+        # outfile.write(">"+name+"_"+str(count)+"\n")
         for j in i:
             if len(j) >= lenfilter:
+                outfile.write(">"+name+"_"+str(count)+"\n")
                 outfile.write(j+"\n")
-        count += 1
+            count += 1
     outfile.close()
 
 def write_peptide_frames(peptide_array,name,lenfilter=10):
@@ -113,8 +115,10 @@ def write_peptide_frames(peptide_array,name,lenfilter=10):
     count = 0
     for i in peptide_array:
         outfile.write(">"+name+"_"+str(count)+"\n")
-        if len(j) >= lenfilter:
-            outfile.write(j+"\n")
+        # if len(j) >= lenfilter:
+        #     outfile.write(j+"\n")
+        if len(i) >= lenfilter:
+            outfile.write(i+"\n")
         count += 1
     outfile.close()
 
@@ -141,6 +145,7 @@ def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=T
     # inseq_translated_frames = [] # some way to save this as a nested array?
     print("Emitting full frames")
     write_peptide_frames_old([inseq_translated_frames],name=name+"_peptide_frames",lenfilter=0)
+    # write_peptide_frames([inseq_translated_frames],name=name+"_peptide_frames",lenfilter=0)
     # write_peptide_frames(inseq_translated_frames,name=name+"_peptide_frames",lenfilter=0)
     if digest_peptides:
         inseq_translated_frames_peptides = []
@@ -168,10 +173,21 @@ Next additions to streamline peptide outputs
 def main():
     infa = sys.argv[1] # infasta
     print("Now reading %s ..."%infa)
-    inseq,inseqname = import_sequence(infa)
+    inseq,inseqname = import_sequence(infa,concat_seq=False)
     infilename = os.path.basename(infa).split(".txt")[0] # infa.split(".fa")[0]
     print("\t ... defining peptides ... "),
-    inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False)
+    
+    ##
+    # if we have multiple, then we don't concat
+    if type(inseq) is list:
+        for i,j in zip(inseq,inseqname):
+            j_rename = "_".join(j.split(":"))
+            inpeptides = define_peptides(inseq=i,name=j_rename,digest_peptides=False)
+    else:
+        inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False)
+    ##
+    
+    # inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False)
     print("peptides obtained!")
 
 if __name__ == "__main__":

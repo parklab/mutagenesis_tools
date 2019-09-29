@@ -104,32 +104,47 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
     
     return(frames)
 
-def write_peptides(peptide_array,name):
+def write_peptides(peptide_array,name,clip_after_stop):
     # outfile = open(os.getcwd()+"/"+name+".txt",'w')
+    print("clip after stop:",clip_after_stop)
     outfile = open(name+".txt",'w')
     for i in peptide_array:
         for j in i:
-            outfile.write(j+"\n")
+            if clip_after_stop and j[0] != ">":
+                # if we specify to clip a peptide after a "*" codon...
+                j_clipped = j.split('*')[0]
+                outfile.write(j_clipped+"\n")
+            else:
+                outfile.write(j+"\n")
     outfile.close()
 
 def length_fiter(peptide,minlen=8):
     return(len(peptide) >= minlen)
 
-def write_peptide_frames_old(peptide_array,name,lenfilter=10):
+def write_peptide_frames_old(peptide_array,name,clip_after_stop,lenfilter=10):
     # write as a FASTA file
     outfile = open(name+".fa",'w')
     count = 0
     for i in peptide_array:
-        outfile.write(">"+name+"_"+str(count)+"\n")
+        # outfile.write(">"+name+"_"+str(count)+"\n")
         for j in i:
             if len(j) >= lenfilter:
-                outfile.write(j+"\n")
-        count += 1
+                outfile.write(">"+name+"_"+str(count)+"\n")
+                if clip_after_stop and j[0] != ">":
+                    j_clipped = j.split('*')[0]
+                    outfile.write(j_clipped+"\n")
+                else:
+                    outfile.write(j+"\n")
+            count += 1
     outfile.close()
 
 def write_peptide_frames(peptide_array,name,lenfilter=10):
+    # create a separate folder
+    if not os.path.exists(name):
+        print("writing to new folder")
+        os.makedirs(name)
     # write as a FASTA file
-    outfile = open(name+".fa",'w')
+    outfile = open(name+"/"+name+".fa",'w')
     count = 0
     for i in peptide_array:
         outfile.write(">"+name+"_"+str(count)+"\n")
@@ -139,7 +154,7 @@ def write_peptide_frames(peptide_array,name,lenfilter=10):
     outfile.close()
 
 
-def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=False,search_stop_codons=False,search_alt_strand=False,digest_peptides=True,omit_termin=True):
+def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=False,search_stop_codons=False,search_alt_strand=False,digest_peptides=True,omit_termin=True,clip_after_stop=True):
     # if search_start_codons=True, then get all possible start sites--any position with an M. Else, start from the beginning of the sequence
     # if search_stop_codons=True, then get all possible end sites--any codon with a stop codon. Else, end at the beginning of the sequence
     # if search_alt_strand=True, then get the reverse complement of the sequence
@@ -148,7 +163,6 @@ def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=F
     else:
         inseq_use = inseq
     inseq_frames = define_frames(inseq=inseq_use,search_start_codons=search_start_codons,search_stop_codons=search_stop_codons)
-    print(inseq_frames)
     
     # inseq_translated_frames = [translatstopgae_sequence(i) for i in inseq_frames]
     
@@ -163,7 +177,7 @@ def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=F
     # print(inseq_translated_frames)
     # inseq_translated_frames = [] # some way to save this as a nested array?
     print("Emitting full frames")
-    write_peptide_frames_old([inseq_translated_frames],name=name+"_peptide_frames",lenfilter=0)
+    write_peptide_frames_old([inseq_translated_frames],name=name+"_peptide_frames",lenfilter=0,clip_after_stop=clip_after_stop)
     # write_peptide_frames(inseq_translated_frames,name=name+"_peptide_frames",lenfilter=0)
     if digest_peptides:
         inseq_translated_frames_peptides = []
@@ -175,7 +189,7 @@ def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=F
             inseq_translated_frames_peptides.append(a)
             # need to allow the fill peptide if len(peptide) < tile
             # print(inseq_translated_frames_peptides)
-            write_peptides(a,name=name+"_peptides_"+str(i)+"aa")
+            write_peptides(a,name=name+"_peptides_"+str(i)+"aa",clip_after_stop=clip_after_stop)
             print("\t %d %d-mers ..."%(len(a),i)),
         # return(inseq_translated_frames_peptides)
     # else:
@@ -198,10 +212,18 @@ def main():
     print("hello")
     infa = sys.argv[1] # infasta
     print("Now reading %s ..."%infa)
-    inseq,inseqname = import_sequence(infa)
+    inseq,inseqname = import_sequence(infa,concat_seq=False)
     infilename = os.path.basename(infa).split(".txt")[0] # infa.split(".fa")[0]
     print("\t ... defining peptides ... "),
-    inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=True,omit_termin=False)
+    
+    # if we have multiple, then we don't concat
+    if type(inseq) is list:
+        for i,j in zip(inseq,inseqname):
+            j_rename = "_".join(j.split(":"))
+            # inpeptides = define_peptides(inseq=i,name=j_rename,digest_peptides=False,omit_termin=False)
+            inpeptides = define_peptides(inseq=i,name=j_rename,digest_peptides=False,omit_termin=False,search_start_codons=False,search_stop_codons=False)
+    else:
+        inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False,omit_termin=False)
     print("peptides obtained!")
 
 if __name__ == "__main__":
