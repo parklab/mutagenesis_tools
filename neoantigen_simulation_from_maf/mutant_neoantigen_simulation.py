@@ -14,6 +14,7 @@ sys.path.insert(0,'/n/data1/hms/dbmi/park/vinay/pipelines/mutagenesis/')
 import tile_peptides_from_sequence_dev as tilepep
 
 
+# test object
 class mutation:
     # set attributes
     def __init__(self, contig, pos, ref=None, alt=None,**kwargs):
@@ -31,6 +32,12 @@ class mutation:
             self.strand = kwargs['strand']
         else:
             self.strand = "+"
+            
+        # determine metadata
+        if 'metadata' in kwargs:
+            self.metadata = kwargs['metadata']
+        else:
+            self.metadata = ['']
         
         # set the coordinates
         self.contig = str(contig) # chromosome/contig where the mutation occurs
@@ -51,11 +58,33 @@ class mutation:
         self.ref = ref
         self.alt = alt
         
-        # type of variant
-        if self.pos[1] - self.pos[0] <= 1:
-            self.type_of_variant = "snv"
-        else:
-            self.type_of_variant = "indel"
+        # instantiate options for local WT/mutant sequence context
+        self.wt_sequence_context = None
+        self.mutant_sequence_context = None
+        
+        
+#         # type of variant
+#         if self.pos[1] - self.pos[0] <= 1:
+#             self.type_of_variant = "snv/snp"
+#         elif self.pos[1] - self.pos[0] > 1 and self.pos[1] - self.pos[0] <= 500:
+#             self.type_of_variant = "small_indel"
+#         elif self.pos[1] - self.pos[0] > 500:
+#             self.type_of_variant = "sv"
+#         else:
+#             self.type_of_variant = None
+            
+    def __repr__(self):
+        # string representation
+        mut_info = [self.contig,
+                   self.pos[0],
+                   self.pos[1],
+                   self.ref,
+                   self.alt,
+                   self.strand,
+                   self.wt_sequence_context,
+                   self.mutant_sequence_context] + self.metadata
+            
+        return('\t'.join([str(i) for i in mut_info]))
     
     # set reference genome and genome file
     def set_reference_genome(self,ref_genome,**kwargs):
