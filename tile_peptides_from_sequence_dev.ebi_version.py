@@ -6,7 +6,8 @@ from collections import defaultdict
 import argparse
 
 # sys.path.insert(")
-sys.path.insert(0,"/n/data1/hms/dbmi/park/vinay/pipelines/mutagenesis")
+# sys.path.insert(0,"/n/data1/hms/dbmi/park/vinay/pipelines/mutagenesis")
+# sys.path.insert(0,"/gpfs/nobackup/icortes/vvv776/pipelines/mutagenesis_tools/utilities")
 import make_all_nmer_substitutions_copy_dev as nmersub
 # from make_all_nmer_substitutions import nmersub.reverse_seq,nmersub.translation,codon_table,tile_sequence,complement_seq
 
@@ -63,7 +64,6 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
         start_codons_regex = '|'.join(['(?=('+str(i)+'))' for i in start_codon])
         start_seq_sites = [i.start() for i in re.finditer(start_codons_regex,inseq)]
         # if groups of start seq sites are within `start_seq_site_lim` bases of each other, pick the most upstream start site
-        
     else:
         start_seq_sites = [0]
     # search for stop-codon sequences
@@ -75,25 +75,26 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
         stop_seq_sites = [i.start()+3 for i in re.finditer(stop_codons_regex,inseq)] # add a 3 to provide the index after the stop codon ends
     else:
         stop_seq_sites = [len(inseq)]
-    
+    print(stop_seq_sites)
     # note that if we aren't looking for frames but would like to find an in-frame nmersub.translation, adjust the start and stop sites accordingly so that we can get appropriate frames
     if not search_start_codons and not search_stop_codons:
+        # in this case, we are now searching all three posible translations of this nucleotide sequence...
+        # the error is somewhere here -- indels are being thrown off...
         # other_start = ((stop_seq_sites[0] - start_seq_sites[1]) % 3) - 1
         other_start = ((stop_seq_sites[0] - start_seq_sites[0]) % 3) - 1
         other_start = max(0,other_start) # make sure it starts at 0!
+        other_start = start_seq_sites[0]
         # other_end = stop_seq_sites[0] + ((stop_seq_sites[0] - start_seq_sites[1]) % 3) - 1
-        other_end = stop_seq_sites[0] + ((stop_seq_sites[0] - start_seq_sites[0]) % 3) - 1
+        # other_end = stop_seq_sites[0] + ((stop_seq_sites[0] - start_seq_sites[0]) % 3) - 1
+        other_end = stop_seq_sites[0]
         print(other_start,other_end)
         # start_seq_sites = start_seq_sites + [other_start,other_start+1,other_start+2]
-        # stop_seq_sites = stop_seq_sites + [other_end-2,other_end-1,other_end]
+        stop_seq_sites = stop_seq_sites + [other_end-2,other_end-1,other_end]
         start_seq_sites = [other_start,other_start+1,other_start+2]
         print(start_seq_sites)
         stop_seq_sites = [other_end-2,other_end-1,other_end]
         print(stop_seq_sites)
-
     # print(start_seq_sites,stop_seq_sites)
-    
-    
     # search every combination of start and stop codons; keep frames that are divisible by 3.
     frame_positions = [(i,j) for i in start_seq_sites for j in stop_seq_sites if (j - i) % 3 == 0 and j > i]
     print(frame_positions)
@@ -101,7 +102,6 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
     frames = [inseq[i[0]:i[1]] for i in frame_positions]
     # remove empty frames
     frames = [i for i in frames if len(i) > 0]
-    
     return(frames)
 
 def write_peptides(peptide_array,name,clip_after_stop):
@@ -124,10 +124,12 @@ def length_fiter(peptide,minlen=8):
 def write_decoy(in_peptide):
     return(''.join(random.sample(in_peptide,len(in_peptide))))
 
-def write_peptide_frames_old(peptide_array,name,filename,clip_after_stop,lenfilter=10,write_decoy_peptide=True):
+def write_peptide_frames_old(peptide_array,name,filename,clip_after_stop,lenfilter=10,write_decoy_peptide=False):
     # write as a FASTA file
     # outfile = open(filename+".fa",'w')
-    outfile = open(filename+".fa",'a') # modified to append
+    print(filename)
+    # outfile = open(filename+".fa",'a') # modified to append
+    outfile = open(filename+".fa",'w+') # modified to append
     count = 0
     for i in peptide_array:
         # outfile.write(">"+name+"_"+str(count)+"\n")
@@ -199,13 +201,16 @@ def define_peptides(inseq,name,filename="sequence_translations",peptide_lengths=
     
     # inseq_translated_frames = [translatstopgae_sequence(i) for i in inseq_frames]
     
-    
+    print(inseq_frames) # this is still sorted -- we want to keep the native frame...
     inseq_translated_frames = [translate_sequence(i) for i in inseq_frames]
     
     
     # omit polypeptides with more than two stop codons
     if omit_termin:
         inseq_translated_frames = [i.strip("*") for i in inseq_translated_frames if len(re.findall(r'\*',i)) == 1]
+        
+    print("frames")
+    print(inseq_translated_frames)
     # print("\t%d frames found"%len(inseq_translated_frames)) # suppress
     # print(inseq_translated_frames)
     # inseq_translated_frames = [] # some way to save this as a nested array?
@@ -252,18 +257,21 @@ def main():
     print("\t ... defining peptides ... "),
     
     # remove file if it exists
-    filename="sequence_translations"
+    filename=infilename + "_sequence_translations"
     if os.path.exists(filename+".fa"):
         os.remove(filename+".fa")
     
     # if we have multiple, then we don't concat
     if type(inseq) is list:
+        print("outputting frames for multiple peptides")
         for i,j in zip(inseq,inseqname):
             j_rename = "_".join(j.split(":"))
             # inpeptides = define_peptides(inseq=i,name=j_rename,digest_peptides=False,omit_termin=False)
-            inpeptides = define_peptides(inseq=i,name=j_rename,digest_peptides=False,omit_termin=False,search_start_codons=False,search_stop_codons=False)
+            # inpeptides = define_peptides(inseq=i,name=j_rename,filename=filename,digest_peptides=True,omit_termin=False,search_start_codons=False,search_stop_codons=False)
+            inpeptides = define_peptides(inseq=i,name=infilename,filename=filename,digest_peptides=True,omit_termin=False,search_start_codons=False,search_stop_codons=False)
     else:
-        inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False,omit_termin=False)
+        print("outputting files to %s"%infilename)
+        inpeptides = define_peptides(inseq=inseq,filename=filename,name=infilename,digest_peptides=False,omit_termin=False)
     print("peptides obtained!")
 
 if __name__ == "__main__":

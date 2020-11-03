@@ -96,9 +96,9 @@ def write_peptides(peptide_array,name):
 def length_fiter(peptide,minlen=8):
     return(len(peptide) >= minlen)
 
-def write_peptide_frames_old(peptide_array,name,lenfilter=10):
+def write_peptide_frames_old(peptide_array,name,filename,lenfilter=10):
     # write as a FASTA file
-    outfile = open(name+".fa",'w')
+    outfile = open(filename+".fa",'a')
     count = 0
     for i in peptide_array:
         # outfile.write(">"+name+"_"+str(count)+"\n")
@@ -144,7 +144,8 @@ def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=T
     # print(inseq_translated_frames)
     # inseq_translated_frames = [] # some way to save this as a nested array?
     print("Emitting full frames")
-    write_peptide_frames_old([inseq_translated_frames],name=name+"_peptide_frames",lenfilter=0)
+    # write_peptide_frames_old([inseq_translated_frames],filename="internal_frame_translations",name=name+"_peptide_frames",lenfilter=0)
+    write_peptide_frames_old([inseq_translated_frames],filename="internal_frame_translations",name=name+"_peptide_frames",lenfilter=8)
     # write_peptide_frames([inseq_translated_frames],name=name+"_peptide_frames",lenfilter=0)
     # write_peptide_frames(inseq_translated_frames,name=name+"_peptide_frames",lenfilter=0)
     if digest_peptides:
@@ -176,6 +177,12 @@ def main():
     inseq,inseqname = import_sequence(infa,concat_seq=False)
     infilename = os.path.basename(infa).split(".txt")[0] # infa.split(".fa")[0]
     print("\t ... defining peptides ... "),
+    
+    # remove file if it exists
+    filename="internal_frame_translations"
+    if os.path.exists(filename+".fa"):
+        os.remove(filename+".fa")
+    
     
     ##
     # if we have multiple, then we don't concat

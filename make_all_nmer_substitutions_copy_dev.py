@@ -134,9 +134,10 @@ def translation(inseq):
 	codons = codon_table()
 	# to ensure that we do not accidentally consider too-short sequences...
 	inseq_len = len(inseq) - len(inseq)%3
-	print(inseq_len)
-	aa = [codons[''.join(inseq[i:i+3]).lower()] for i in range(0,inseq_len,3)]
-	# aa = [codons[''.join(inseq[i:i+3]).lower()] for i in range(0,len(inseq),3)]
+	# print(inseq_len) # suppress
+	# aa = [codons[''.join(inseq[i:i+3]).lower()] for i in range(0,inseq_len,3)] # original
+	aa = [codons.get(''.join(inseq[i:i+3]).lower(),"X") for i in range(0,inseq_len,3)]
+	##### aa = [codons[''.join(inseq[i:i+3]).lower()] for i in range(0,len(inseq),3)]
 	return(''.join(aa))
 
 def get_codons(AA):
