@@ -18,6 +18,9 @@ import make_all_nmer_substitutions_copy_dev as nmersub
 # tips on kwargs/args for parallelization: https://stackoverflow.com/questions/54029931/how-to-pass-args-and-kwargs-to-multiprocessing-pool
 # tips for multiprocessing with objects: https://stackoverflow.com/questions/43002766/apply-a-method-to-a-list-of-objects-in-parallel-using-multi-processing
 
+# tips on kwargs/args for parallelization: https://stackoverflow.com/questions/54029931/how-to-pass-args-and-kwargs-to-multiprocessing-pool
+# tips for multiprocessing with objects: https://stackoverflow.com/questions/43002766/apply-a-method-to-a-list-of-objects-in-parallel-using-multi-processing
+
 # test object
 class mutation:
     # set attributes
@@ -91,16 +94,9 @@ class mutation:
         self.mutant_residue_context = None
         self.mutant_vs_wt_pairs = []
         
-#         # type of variant
-#         if self.pos[1] - self.pos[0] <= 1:
-#             self.type_of_variant = "snv/snp"
-#         elif self.pos[1] - self.pos[0] > 1 and self.pos[1] - self.pos[0] <= 500:
-#             self.type_of_variant = "small_indel"
-#         elif self.pos[1] - self.pos[0] > 500:
-#             self.type_of_variant = "sv"
-#         else:
-#             self.type_of_variant = None
-            
+        # instantiate options for the strand of the annotation
+        self.annot_strand = [] # if we have both...
+        
     def __repr__(self):
         # string representation
         mut_info = [self.contig,
@@ -141,29 +137,46 @@ class mutation:
         elif self.wt_sequence_context is not None and seq is None:
             seq = self.wt_sequence_context
         
-#         right_window = self.wt_sequence_context[::-1]
-        right_window = seq[::-1]
-
+#         right_window = seq[::-1]
+        
+        print(seq,left_slop,right_slop,"seq to mutate")
+                
+        # we need a different way to specify the left/right windows
         if self.ref != '-':
-#             left_window = self.wt_sequence_context[:(left_slop)]
-            left_window = seq[:(left_slop)]
-            right_window = right_window[:right_slop]
+            # SNVs, SNPs, or deletions. NOT insertions
+            left_window = seq[:(left_slop - 1)]
+            right_window = seq[(left_slop - 1):] # a correction from before...
+#            right_window = seq[(left_slop - 1 + len(self.alt)):]
         else:
             # the case of insertions
-#             left_window = self.wt_sequence_context[:(left_slop+1)]
-            left_window = seq[:(left_slop+1)]
-            right_window = right_window[:(right_slop+1)]
-        right_window = right_window[::-1]
+#             left_window = seq[:(left_slop+1)]
+            left_window = seq[:left_slop]
+#             right_window = seq[(left_slop+1):]
+#             right_window = seq[(left_slop-2):] # to handle how insertions are coded
+            right_window = seq[(left_slop-1):] # to handle how insertions are coded
+        ####
+        
+        
+        print("left_window",left_window)
+        print("right_window",right_window)
             
         if self.alt != '-':
-            new_mutant_sequence = left_window + self.alt + right_window # should cover SNVs or truncations
+            print(left_window,"join with",self.alt,"and",right_window[len(self.ref):])
+#             new_mutant_sequence = left_window + self.alt + right_window[1:] # should cover SNVs or truncations
+            new_mutant_sequence = left_window + self.alt + right_window[len(self.ref):] # should cover SNVs or truncations
         else:
-            new_mutant_sequence = left_window + right_window # should cover deletions
+            # for deletions
+            print(left_window,"join with",right_window[len(self.ref):])
+#             new_mutant_sequence = left_window + right_window[len(self.alt):] # should cover deletions
+            new_mutant_sequence = left_window + right_window[len(self.ref):] # should cover deletions
+            
+        print("New mutant sequence",new_mutant_sequence)
         
-#         wtseq = self.wt_sequence_context
         wtseq = seq
         mutseq = new_mutant_sequence
         return(wtseq,mutseq)
+    
+    
     
     def get_sequence_context(self,**kwargs):
         ### kwargs to get arguments
@@ -254,7 +267,7 @@ class mutation:
         coord_bt.intersect(self.gtf,wb=True).saveas(tempcoordbedintersect)
         
         # second, call the sets of adjacent annotations and read them in
-        print(' '.join([adjacent_annot,tempcoordbedintersect,self.gtf,coordname]))
+#         print(' '.join([adjacent_annot,tempcoordbedintersect,self.gtf,coordname]))
         bashCommand = ['bash',adjacent_annot,tempcoordbedintersect,self.gtf,coordname]
         output = subprocess.call(bashCommand)
         annot_files = glob.glob('.temp.'+coordname+'.[0-9].bed')
@@ -274,6 +287,7 @@ class mutation:
                  self.pos[0],
                  self.pos[1] + 1,
                  self.strand]
+        print(coord)
         coordentry = ' '.join([str(i) for i in coord])
         coord_bt = pbt.BedTool(coordentry,from_string=True)
         
@@ -289,48 +303,97 @@ class mutation:
         annot_adjacent = annot_bt.intersect(coord_bt,wa=True,v=True)
         
         # reject if contigs mismatch for any reason
+#         print(annot_intersect,len(annot_intersect),"annot_intersect")
+        
+#         if len(annot_adjacent) == 0 or annot_intersect == ' ' or annot_intersect == '':
+#             print("===")
+#             print(annot_adjacent,"Error: no intersection with annotation found. Defaulting to genome context...")
+#             print(len(annot_adjacent))
+#             print("===")
+#             return
+        if len(annot_intersect) == 0 or annot_intersect == ' ' or annot_intersect == '':
+            print(annot_intersect,"Error: no intersection with annotation found. Defaulting to genome context...")
+            print(len(annot_intersect))
+            print("===")
+            return
+
+        
         if annot_intersect[0][0] != self.contig:
             print("Error: contigs mismatch")
             return
         else:
-            print("contigs match %s and %s"%(annot_intersect[0][0],self.contig))
+            print("contigs match %s and %s"%(annot_intersect[0][0],self.contig)) # this works...
 
         # 2. within the intersecting interval, determine whether the slopped sequence is entirely within the intersecting interval
         get_left_adjacent = 0
         get_right_adjacent = 0
         annot_intersect_strand = annot_intersect[0][4]
+        print(annot_intersect_strand,"annot_intersect_strand")
+#         self.annot_strand.append(annot_intersect_strand)
+        
+#         print(slopped_coord,annot_intersect[0],"slop -vs- intersected annot")
         if slopped_coord[1] < int(annot_intersect[0][1]):
             print("slopped interval is left-bounded")
             get_left_adjacent = abs(slopped_coord[1] - int(annot_intersect[0][1]))
+            # actually, set the strand to the current mutation...
             seq = [slopped_coord[0],annot_intersect[0][1],slopped_coord[2],annot_intersect_strand]
+#             seq = [slopped_coord[0],annot_intersect[0][1],slopped_coord[2],slopped_coord[3]]
         else:
-            seq = slopped_coord[:-1] + [annot_intersect_strand]
+#             print(slopped_coord)
+#             seq = slopped_coord[:-1] + [annot_intersect_strand] # essentially, keep the strand
+            seq = slopped_coord [:-1] + [annot_intersect_strand] # essentially, keep the strand
+#         print(seq,"after controlling for left bounding")
             
         if slopped_coord[2] > int(annot_intersect[0][2]):
-            print("slopped interval is right-bounded")
+#             print("slopped interval is right-bounded")
             get_right_adjacent = abs(slopped_coord[2] - int(annot_intersect[0][2]))
-            seq = [seq[0],seq[1],annot_intersect[0][2],seq[3]]
+            seq = [seq[0],seq[1],annot_intersect[0][2],seq[3]] # modify the right-bound accordingly
+#         print(seq,"after controlling for right bounding")
         
         seq = [str(j) for j in seq]            
         
         # 3. For any "overlaps", look for non-intersecting intervals that can come before or after and take those sequences
+        seq1 = ['']
+        seq2 = ['']
+        
         for i in annot_adjacent:
+            
+            # BUG IS SOMEWHERE HERE -- NOT SPECIFYING OVERLAP LENGTH CORRECTLY
+            # i is the adjacent exon
+#             print(i,slopped_coord,"compare annot with slopped coordinate")
             if int(i[1]) < slopped_coord[1] and int(i[2]) < slopped_coord[1] and get_left_adjacent > 0:
+                # if the current "adjacent exon" has a start-site before the current slop-coordinate site
+                # and if the current "adjacent exon" has an end site before the current slop-coordinate site...
+                
+                print("Exon to left-extend into:",i)
+                
                 # this looks for the upstream adjacent exon if we need that overlap...
-                seq1 = [i[0],int(i[2]) - get_left_adjacent,i[2]]
+#                 seq1 = [i[0],int(i[2]) - get_left_adjacent - 1,i[2]]
+                seq1 = [i[0],int(i[2]) - get_left_adjacent,i[2],i[3]]
+
+                print(seq1,"seq1")
                 seq1 = [str(j) for j in seq1]
-            else:
-                seq1 = ['']
-            if int(i[1]) > slopped_coord[2] and int(i[2]) < slopped_coord[1] and get_right_adjacent > 0:
+
+            # BUG IS HERE...
+            if int(i[1]) > slopped_coord[2] and int(i[2]) > slopped_coord[1] and get_right_adjacent > 0: # this bug!
                 # this looks for the upstream adjacent exon if we need that overlap...
-                seq2 = [i[0],i[1],int(i[1]) + get_right_adjacent]
+                print("Exon to right-extend into:",i)
+                
+#                 seq2 = [i[0],int(i[1]) - 1,int(i[1]) + get_right_adjacent]
+                seq2 = [i[0],int(i[1]) - 1,int(i[1]) + get_right_adjacent,i[3]]
+
+                print(seq2,"seq2")
+
                 seq2 = [str(j) for j in seq2]
-            else:
-                seq2 = ['']
         
         # 4. Format the collection of sequences into a single sequence and set as the wt_sequence_context and mutant sequences
         seq_total = [seq1,seq,seq2]
+        # get the strand of the annotations...
+        self.annot_strand += list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
+        self.annot_strand = [i for i in self.annot_strand if i != '']
+
         seq_total = [' '.join(i) for i in seq_total if i != ['']]
+        print(seq_total)
         seq_total_fa = ''
         for i in seq_total:
             # coord bedpt
@@ -398,20 +461,26 @@ class mutation:
         
         # 1. get adjacent annotations
         adjacent_annot = self.get_adjacent_annotations(leftslop,rightslop)
+        print(adjacent_annot,"adjacent_annot") # THIS WORKS
         
         # 1 and 2. get the adjacent sequences...
         wt_running = ''
         mut_running = ''
         seq_contexts = []
         for i in adjacent_annot:
-            inseq = self.extract_sequence_at_annotations(i,leftslop=leftslop,rightslop=rightslop)
+            inseq = self.extract_sequence_at_annotations(i,leftslop=leftslop,rightslop=rightslop) # CHECK THIS...
+            print(inseq)
+            if inseq is None:
+                print(self,"no annotation sequence found...")
             # 3. fish out the wt sequence and the mutated wt
             i_wt,i_mut = self.mutate_sequence(seq=inseq,
                                               left_slop=leftslop,
                                               right_slop=rightslop)
             seq_contexts.append((i_wt,i_mut))
         # get unique sequences
+        print(seq_contexts)
         seq_contexts = set(seq_contexts)
+        print(seq_contexts)
         for i,j in seq_contexts:
             wt_running += i_wt + ","
             mut_running += i_mut + ","
@@ -425,56 +494,12 @@ class mutation:
             self.wt_sequence_context = wt_running
             self.mutant_sequence_context = mut_running
             
-    # need to add an option to generate peptides from the sequences
-    def generate_translation(shear_translations=True,
-                             compare_mutant_wt=True,
-                             clip_at_stop_codons=False,
-                             reset_mutant_vs_wt_pairs=True,
-                             **kwargs):
-        # mutant sequence
-        mut_peptides,mut_frame_pos,mut_frames = tilepep.return_peptides(inseq=obj.mutant_sequence_context,**kwargs)
-    
-        # wt sequence
-        wt_peptides,wt_frame_pos,wt_frames = tilepep.return_peptides(inseq=obj.wt_sequence_context,**kwargs)
-        
-        # do we store the full frames or the sheared translations
-        if shear_translations:
-            obj.mutant_residue_context = mut_peptides
-            obj.wt_residue_context = wt_peptides
-        else:
-            obj.mutant_residue_context = mut_frames
-            obj.wt_residue_context = wt_frames
-                    
-        if compare_mutant_wt:
-            if reset_mutant_vs_wt_pairs:
-                obj.mutant_vs_wt_pairs = []
-            # assemble pairs
-            for i,j in zip(mut_peptides,wt_peptides):
-                peplen_list = list(itertools.zip_longest(i,j, fillvalue=''))
-                for a,b in peplen_list:
-                    # if we have to clip at stopcodons, then...
-                    print(a,b)
-                    if clip_at_stop_codons:
-                        a1 = a.split('*')[0]
-                        b1 = b.split('*')[0]
-                    else:
-                        a1 = a
-                        b1 = b
-                    n_differences = sum([1 for k in list(itertools.zip_longest(a1,b1, fillvalue='')) if k[0] != k[1]])
-                    obj.mutant_vs_wt_pairs.append((a1,b1,a1==b1,n_differences))
+        # reduce the annot strands to uniques...
+        self.annot_strand = list(set(self.annot_strand))
 ####################
     
         
 class mutation_set():
-    
-    # this option will store a list of mutation objects.
-    # test if we can paralllelize operations involving mutation objects (instantiation of mutation objects, mutagenesis, etc)
-    # future options will
-    # 1. Conduct mutational signature analysis
-    # 2. Look for coverage stats across all mutations
-    # 3. Do annotation-burden tests
-    # 4. Eventually accomodate diverse mutations type (CNs?)
-    
     def __init__ (self,bedfile,**kwargs):
         
         # bedfile assumes that we have ref/alt positions as columns 4/5 (respectively)
@@ -518,9 +543,7 @@ class mutation_set():
     def get_mutation_at_index(self,ind):
         return(self.mutations[min(ind,len(self.mutations) - 1)])
     
-    # retrieve the mutant/WT context of each position
-    
-    ## workers
+    # retrieve the mutant/WT context of each position 
     def worker_seq_context(self,obj):
         mutobj = obj[0]
         kwargs = obj[1]
@@ -535,7 +558,7 @@ class mutation_set():
         # note: it is not possible to keep the modification lasting when using pool.map according to https://stackoverflow.com/questions/15857838/modify-object-in-python-multiprocessing, but we will instead return the modified object
         return(mutobj)
 
-    # deployment functions
+
     def get_seq_context(self,**kwargs):
         # pool
         if 'n_jobs' in kwargs:
@@ -550,7 +573,6 @@ class mutation_set():
                               input_zip)
         pool.close()
         pool.join()
-        
         # update the set of mutations with the copies of these mutations but with modified wt/mutant sequence contexts
         self.mutations = new_mutations
         
@@ -573,35 +595,8 @@ class mutation_set():
         
         # update the set of mutations with the copies of these mutations but with modified wt/mutant sequence contexts
         self.mutations = new_mutations
-        
-    # translation
-    ## workers
-    def worker_generate_translations(self,obj):
-        mutobj = obj[0]
-        kwargs = obj[1]
-        mutobj.generate_translation(**kwargs)
-        # note: it is not possible to keep the modification lasting when using pool.map according to https://stackoverflow.com/questions/15857838/modify-object-in-python-multiprocessing, but we will instead return the modified object
-        return(mutobj)
 
-    ## deployment
-    def get_translations_at_context(self,**kwargs):
-        # a variant of get_seq_context, except it searches the annotation-defined sequence
-        # pool
-        if 'n_jobs' in kwargs:
-            n_jobs = int(kwargs['n_jobs'])
-        else:
-            n_jobs = 10
-        print("Running %d jobs at a time in parallel "%n_jobs)
-        pool = Pool(n_jobs)
-        args = [kwargs] * len(self.mutations)
-        input_zip = zip(self.mutations,args)
-        new_mutations = pool.map(self.worker_generate_translations, 
-                              input_zip)
-        pool.close()
-        pool.join()
-        
-        # update the set of mutations with the copies of these mutations but with modified wt/mutant sequence contexts
-        self.mutations = new_mutations
-
-    
-########
+            
+    def get_stats_areas(self,**kwargs):
+        all_areas = self.calculate_areas(**kwargs)
+        return(max(all_areas),min(all_areas),np.mean(all_areas),np.median(all_areas))
