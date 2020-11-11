@@ -235,6 +235,51 @@ def define_peptides(inseq,name,filename="sequence_translations",peptide_lengths=
     return(inseq_translated_frames)
 
 
+def return_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=False,search_stop_codons=False,search_alt_strand=False,digest_peptides=True,omit_termin=True,clip_after_stop=True):
+    # if search_start_codons=True, then get all possible start sites--any position with an M. Else, start from the beginning of the sequence
+    # if search_stop_codons=True, then get all possible end sites--any codon with a stop codon. Else, end at the beginning of the sequence
+    # if search_alt_strand=True, then get the reverse complement of the sequence
+    if search_alt_strand:
+        inseq_use = reverse_complement(inseq)
+    else:
+        inseq_use = inseq
+    inseq_frames = define_frames(inseq=inseq_use,search_start_codons=search_start_codons,search_stop_codons=search_stop_codons)
+    
+    # inseq_translated_frames = [translatstopgae_sequence(i) for i in inseq_frames]
+    
+    print(inseq_frames) # this is still sorted -- we want to keep the native frame...
+    inseq_translated_frames = [translate_sequence(i) for i in inseq_frames]
+    
+    
+    # omit polypeptides with more than two stop codons
+    if omit_termin:
+        inseq_translated_frames = [i.strip("*") for i in inseq_translated_frames if len(re.findall(r'\*',i)) == 1]
+        
+    print("frames")
+    print(inseq_translated_frames)
+    # print("\t%d frames found"%len(inseq_translated_frames)) # suppress
+    # print(inseq_translated_frames)
+    # inseq_translated_frames = [] # some way to save this as a nested array?
+    # print("Emitting full frames") # suppress
+    
+    write_peptide_frames_old([inseq_translated_frames],name=name+"_peptide_frames",filename=filename,lenfilter=8,clip_after_stop=clip_after_stop) # at least 8 AA for digestion... # modify to write to the same file! 
+    # write_peptide_frames(inseq_translated_frames,name=name+"_peptide_frames",lenfilter=0)
+    if digest_peptides:
+        inseq_translated_frames_peptides = []
+        print("\tobtaining peptides ..."),
+        for i in peptide_lengths:
+            # I should indicate the coordinates for each frame in the future...
+            a = [[''.join(i_tile) for i_tile in nmersub.tile_sequence(inseq=j,k=i,overlap=False)] for j in inseq_translated_frames] # this line is throwing an error
+            # inseq_translated_frames_peptduleraides.append(a)
+            inseq_translated_frames_peptides.append(a)
+            # need to allow the fill peptide if len(peptide) < tile
+            print("\t %d %d-mers ..."%(len(a),i)),
+        return(inseq_translated_frames_peptides)
+    else:
+        return(inseq_translated_frames)
+
+
+
 # def nmersub.tile_sequence(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=True,search_stop_codons=True,search_alt_strand=False,digest_peptides=True):
 #     # given the sequence, 
 #     return()
