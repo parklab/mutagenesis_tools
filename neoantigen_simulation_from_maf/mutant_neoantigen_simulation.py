@@ -142,23 +142,27 @@ class mutation:
         print(seq,left_slop,right_slop,"seq to mutate")
                 
         # we need a different way to specify the left/right windows
+        left_window = seq[:left_slop]
         if self.ref != '-':
             # SNVs, SNPs, or deletions. NOT insertions
-            left_window = seq[:(left_slop - 1)]
-            right_window = seq[(left_slop - 1):] # a correction from before...
+            # left_window = seq[:(left_slop - 1)]
+            # right_window = seq[(left_slop - 1):] # a correction from before...
+            left_window = seq[:left_slop]
+            right_window = seq[left_slop:] # a correction from before...
 #            right_window = seq[(left_slop - 1 + len(self.alt)):]
         else:
             # the case of insertions
 #             left_window = seq[:(left_slop+1)]
-            left_window = seq[:left_slop]
+            # left_window = seq[:left_slop]
 #             right_window = seq[(left_slop+1):]
 #             right_window = seq[(left_slop-2):] # to handle how insertions are coded
-            right_window = seq[(left_slop-1):] # to handle how insertions are coded
+            left_window = seq[:(left_slop+1)]
+            right_window = seq[left_slop:] # to handle how insertions are coded
         ####
         
         
-        print("left_window",left_window)
-        print("right_window",right_window)
+        print("left_window",left_window,seq)
+        print("right_window",right_window,seq)
             
         if self.alt != '-':
             print(left_window,"join with",self.alt,"and",right_window[len(self.ref):])
@@ -199,6 +203,8 @@ class mutation:
         # only trigger "equalslop" if it is specified; otherwise, default to left/right slop
         if 'equalslop' in kwargs:
             leftslop = rightslop = int(kwargs['equalslop'])
+        print(leftslop,"leftslop")
+        print(rightslop,"rightslop")
             
         # add an option to return the sequence instead of altering the object attribute
         if 'return_sequence_only' in kwargs:
@@ -221,10 +227,16 @@ class mutation:
         if 'coord' in kwargs:
             coord = kwargs['coord']
         else:
+            # coord = [self.contig,
+            #          self.pos[0] - leftslop,
+            #          self.pos[1] + rightslop + 1,
+            #          self.strand]
             coord = [self.contig,
-                     self.pos[0] - leftslop,
-                     self.pos[1] + rightslop + 1,
-                     self.strand]
+                     self.pos[0] - leftslop - 1,
+                     self.pos[1] + rightslop,
+                     self.strand] # because the command requires zero-based...
+
+        print(coord,"coord")
         coord = ' '.join([str(i) for i in coord])
         coord_bt = pbt.BedTool(coord,from_string=True)
         

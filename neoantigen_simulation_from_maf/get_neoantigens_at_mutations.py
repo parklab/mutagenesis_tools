@@ -32,6 +32,8 @@ annot = args.annotation
 jobname = args.name
 dist = args.distance
 
+print(intervals,genomefa,annot,jobname,dist)
+
 # first, create the set of mutants
 mutant_file = neoa.mutation_set(intervals,
                                 ref_genome = genomefa,
@@ -40,9 +42,9 @@ mutant_file = neoa.mutation_set(intervals,
 # then, for each mutant, derive the annotation-defined sequence contexts
 # if annotation is specified, then get the annotation context
 if annot is not None:
-    mutant_file.get_seq_context(equalslop=dist)
+    mutant_file.get_seq_context_at_annot(equalslop=dist)
     # translate the sequence contexts
-    mutant_file.get_translations_at_context()
+    # mutant_file.get_translations_at_context()
 else:    
     mutant_file.get_seq_context(equalslop=dist)
 
@@ -55,8 +57,11 @@ with open(jobname+".mutation_sequence_contexts.txt",'w') as f, open(jobname+".mu
     f.write('\t'.join(outheader)+"\n")
     a.write('\t'.join(outheader2)+"\n")
     for i in mutant_file:
-        f.write(i.__str__()+"\n")
-        for j in i.mutant_vs_wt_pairs:
-            a.write("\t".join(i.ccordinate) + "\t".join([str(k) for k in j]) + "\t".join([str(m) for m in i.metadata]) + "\n")
+        f.write(i.__str__()+"\t"+','.join(i.annot_strand)+"\n")
+        # f.write(i.__str__()+"\n")
+        if len(i.mutant_vs_wt_pairs) > 0:
+            # only activate this option if we have reported mutant-vs-wt pairs
+            for j in i.mutant_vs_wt_pairs:
+                a.write("\t".join(i.ccordinate) + "\t".join([str(k) for k in j]) + "\t".join([str(m) for m in i.metadata]) + "\n")
 
 # peptides
