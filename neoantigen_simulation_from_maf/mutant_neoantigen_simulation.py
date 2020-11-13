@@ -267,10 +267,15 @@ class mutation:
         adjacent_annot = scriptdir + 'get_adjacent_exon_annotations.sh'
         
         # first, format the mutation position into a bedfile and calculate the intersection
+        # coord = [self.contig,
+        #          self.pos[0] - leftslop,
+        #          self.pos[1] + rightslop + 1,
+        #          self.strand]
         coord = [self.contig,
-                 self.pos[0] - leftslop,
-                 self.pos[1] + rightslop + 1,
-                 self.strand]
+                 self.pos[0] - leftslop - 1,
+                 self.pos[1] + rightslop,
+                 self.strand] # because the command requires zero-based...
+
         coordentry = ' '.join([str(i) for i in coord])
         coordname = '_'.join([str(i) for i in coord])
         tempcoordbed = '.temp.'+coordname+'.bed'
@@ -295,19 +300,28 @@ class mutation:
         # steps
         # 1. separate the interval that intersects the mutation from the interval that does not (these should be adjacent)
         # coord
+        # coord = [self.contig,
+        #          self.pos[0],
+        #          self.pos[1] + 1,
+        #          self.strand]
         coord = [self.contig,
-                 self.pos[0],
-                 self.pos[1] + 1,
-                 self.strand]
+                 self.pos[0] - 1,
+                 self.pos[1],
+                 self.strand] # make into zero-based
+
         print(coord)
         coordentry = ' '.join([str(i) for i in coord])
         coord_bt = pbt.BedTool(coordentry,from_string=True)
         
         # slopped-coord
+        # slopped_coord = [self.contig,
+        #          self.pos[0] - leftslop,
+        #          self.pos[1] + rightslop + 1,
+        #          self.strand]
         slopped_coord = [self.contig,
-                 self.pos[0] - leftslop,
-                 self.pos[1] + rightslop + 1,
-                 self.strand]
+                 self.pos[0] - leftslop - 1,
+                 self.pos[1] + rightslop,
+                 self.strand] # because the command requires zero-based...
 
         # annotation
         annot_bt = pbt.BedTool(infile)
@@ -324,8 +338,9 @@ class mutation:
 #             print("===")
 #             return
         if len(annot_intersect) == 0 or annot_intersect == ' ' or annot_intersect == '':
-            print(annot_intersect,"Error: no intersection with annotation found. Defaulting to genome context...")
+            print(annot_intersect,"Error: no intersection with annotation found for %s. Defaulting to genome context..."%self.__repr__())
             print(len(annot_intersect))
+            # add the option to get the wt-context from genome here and do the mutation...
             print("===")
             return
 
@@ -348,7 +363,8 @@ class mutation:
             print("slopped interval is left-bounded")
             get_left_adjacent = abs(slopped_coord[1] - int(annot_intersect[0][1]))
             # actually, set the strand to the current mutation...
-            seq = [slopped_coord[0],annot_intersect[0][1],slopped_coord[2],annot_intersect_strand]
+            # seq = [slopped_coord[0],annot_intersect[0][1],slopped_coord[2],annot_intersect_strand]
+            seq = [slopped_coord[0],str(int(annot_intersect[0][1]) - 1),slopped_coord[2],annot_intersect_strand] # turning this into a zero-based coordinate
 #             seq = [slopped_coord[0],annot_intersect[0][1],slopped_coord[2],slopped_coord[3]]
         else:
 #             print(slopped_coord)
@@ -381,7 +397,8 @@ class mutation:
                 
                 # this looks for the upstream adjacent exon if we need that overlap...
 #                 seq1 = [i[0],int(i[2]) - get_left_adjacent - 1,i[2]]
-                seq1 = [i[0],int(i[2]) - get_left_adjacent,i[2],i[3]]
+                # seq1 = [i[0],int(i[2]) - get_left_adjacent,i[2],i[3]]
+                seq1 = [i[0],int(i[2]) - get_left_adjacent + 1,i[2],i[3]] # does this fix the one-off error?
 
                 print(seq1,"seq1")
                 seq1 = [str(j) for j in seq1]

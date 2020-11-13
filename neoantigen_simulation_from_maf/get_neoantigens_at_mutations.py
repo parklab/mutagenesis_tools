@@ -11,7 +11,7 @@ import mutant_neoantigen_simulation as neoa
 # place an argparse interface here
 parser = argparse.ArgumentParser(description='Detect transcriptomic coverage around breakpoints')
 parser.add_argument('-i','--input',
-                    help='BED file input containing variants. We suggest the "chr,start,end,ref,alt,strand" format. REQUIRED',type=str)
+                    help='BED file input containing variants. We suggest the "chr,start,end,ref,alt,strand" format. NOTE: Your coordinates should be specified as one-based (i.e. a position is marked by a number, not by the span between two numbers). For insertions, the coordinate should be marked with two positions, the start right before the insertion, and the end right after the insertion. REQUIRED',type=str)
 parser.add_argument('-a','--annotation',
                     help='Annotation file. Optional, but suggested if you want to conduct meaningful sequence translations. REQUIRED',type=str,default=None)
 parser.add_argument('-f','--fasta',
