@@ -13,7 +13,7 @@ def reverse_seq(inseq):
 
 def complement_seq(inseq):
 	compl = {'A':'T','C':'G','T':'A','G':'C'}
-	compseq = [compl[i.upper()] for i in inseq]
+	compseq = ''.join([compl[i.upper()] for i in inseq])
 	return(compseq)
 	
 def get_new_substitutions (inseq):

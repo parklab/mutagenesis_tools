@@ -1,5 +1,6 @@
 #!/bin/bash
-#SBATCH -p short
+#SBATCH -p park
+#SBATCH -A park_contrib
 #SBATCH -t 0-12:00
 #SBATCH -n 6
 #SBATCH -N 1
@@ -44,3 +45,14 @@ else
     echo -e "getting annotation-sequence context" >> run_params.txt
     python $scriptdir/get_neoantigens_at_mutations.py --input $intervals --fasta $genomefa --name $outname --distance $sloplen --annotation $exongtf
 fi
+
+# move tempfiles
+echo -e "moving tempfiles away..."
+mkdir -p tempfiles
+mv .temp.*.bed tempfiles
+
+# to debug
+for i in $(awk 'BEGIN {FS=OFS="\t"} {if (length($8) < 5) print $2}' $outname.mutation_sequence_contexts.txt); do
+    grep -P "\t$i\t" $intervals
+done > $outname.to_debug.bed
+grep -c "^" $outname.to_debug.bed | paste - <(echo -e "variants don't have an annotation sequence context generated. Please recheck") >> run_params.txt

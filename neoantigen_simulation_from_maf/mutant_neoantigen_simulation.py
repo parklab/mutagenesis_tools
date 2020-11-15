@@ -97,6 +97,9 @@ class mutation:
         # instantiate options for the strand of the annotation
         self.annot_strand = [] # if we have both...
         
+        # set the name
+        self.name = '~'.join(self.coordinate)
+        
     def __repr__(self):
         # string representation
         mut_info = [self.contig,
@@ -105,6 +108,7 @@ class mutation:
                    self.ref,
                    self.alt,
                    self.strand,
+                   self.name,
                    self.wt_sequence_context,
                    self.mutant_sequence_context] + self.metadata
             
@@ -261,10 +265,18 @@ class mutation:
                 self.mutant_sequence_context = mut
     
     # at adjacent annotations
-    def get_adjacent_annotations(self,leftslop=0,rightslop=0,remove_intersect_file_at_end=True):
+#     def get_adjacent_annotations(self,leftslop=0,rightslop=0,remove_intersect_file_at_end=True):
+    def get_adjacent_annotations(self,leftslop=0,rightslop=0,**kwargs):
+
         # get requisite scripts
         scriptdir = '/n/data1/hms/dbmi/park/vinay/pipelines/mutagenesis/neoantigen_simulation_from_maf/' # replace with a function to get the current script's directory
         adjacent_annot = scriptdir + 'get_adjacent_exon_annotations.sh'
+        
+        # remove temp files?
+        if 'remove_intersect_file_at_end' in kwargs:
+            remove_intersect_file_at_end = bool(kwargs['remove_intersect_file_at_end'])
+        else:
+            remove_intersect_file_at_end = True
         
         # first, format the mutation position into a bedfile and calculate the intersection
         # coord = [self.contig,
@@ -286,8 +298,11 @@ class mutation:
         # second, call the sets of adjacent annotations and read them in
 #         print(' '.join([adjacent_annot,tempcoordbedintersect,self.gtf,coordname]))
         bashCommand = ['bash',adjacent_annot,tempcoordbedintersect,self.gtf,coordname]
-        output = subprocess.call(bashCommand)
-        annot_files = glob.glob('.temp.'+coordname+'.[0-9].bed')
+        try:
+            output = subprocess.call(bashCommand)
+            annot_files = glob.glob('.temp.'+coordname+'.[0-9].bed')
+        except:
+            print("bedtools intersection failed for coordinate",coordentry)
         
         if remove_intersect_file_at_end:
             print("removing %s"%tempcoordbedintersect)
@@ -342,12 +357,12 @@ class mutation:
             print(len(annot_intersect))
             # add the option to get the wt-context from genome here and do the mutation...
             print("===")
-            return
+            return(None,None)
 
         
         if annot_intersect[0][0] != self.contig:
             print("Error: contigs mismatch")
-            return
+            return(None,None)
         else:
             print("contigs match %s and %s"%(annot_intersect[0][0],self.contig)) # this works...
 
@@ -417,9 +432,15 @@ class mutation:
         
         # 4. Format the collection of sequences into a single sequence and set as the wt_sequence_context and mutant sequences
         seq_total = [seq1,seq,seq2]
+        print(seq_total,"seq_total")
         # get the strand of the annotations...
-        self.annot_strand += list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
-        self.annot_strand = [i for i in self.annot_strand if i != '']
+        annot_strand_to_use = list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
+        print(annot_strand_to_use,"annot_strand before filtering...")
+        annot_strand_to_use = [i for i in self.annot_strand if i != '']
+        print(annot_strand_to_use,"annot_strand")
+        self.annot_strand += annot_strand_to_use # list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
+        # annot_strand_to_use = annot_strand_to_use[0]
+        # self.annot_strand = [i for i in self.annot_strand if i != '']
 
         seq_total = [' '.join(i) for i in seq_total if i != ['']]
         print(seq_total)
@@ -430,18 +451,32 @@ class mutation:
             # set fasta
             fasta = pbt.example_filename(self.ref_genome)
             # now, read sequence
-            a = coord_bt.sequence(fi=fasta)
+            try:
+                a = coord_bt.sequence(fi=fasta) # bug is somewhere here
+            except:
+                print("cannot extract a sequence for %s. Skipping..."%i)
+                continue
             a_fasta_out = open(a.seqfn).read()
             wt_seq = a_fasta_out.split("\n")[1]
             # mutant sequence       
             seq_total_fa += wt_seq
+            
+        # if the strand is negative, get the reverse-complement
+        # if annot_strand_to_use[0] == '-':
+        # if annot_intersect_strand == '-':
+        #     print("getting reverse-complement of sequence...")
+        #     seq_total_fa_final_temp = nmersub.reverse_seq(seq_total_fa)
+        #     seq_total_fa_final = nmersub.complement_seq(seq_total_fa_final_temp)
+        #     print("wt sequence %s is now stored as %s"%(seq_total_fa,seq_total_fa_final))
+        # else:
+        #     seq_total_fa_final = seq_total_fa
 
         # Finally, we need to clean up the temporary bed files to prevent over-cluttering if specified
         if remove_infile_at_end:
             print("removing %s"%infile)
             rmcommand = ['rm',infile]
             subprocess.call(rmcommand)
-        return(seq_total_fa)
+        return(seq_total_fa,annot_intersect_strand)
         
         
         # the parent function 'get_sequence_context_at_annotation' will then run the mutate_sequence operation to simulate mutant
@@ -457,6 +492,12 @@ class mutation:
         if self.ref_genome is None:
             print("No reference genome specified, so cannot retrieve sequence")
             return
+        
+        # should we translate?
+        if 'get_translation' in kwargs:
+            get_translation = bool(kwargs['get_translation'])
+        else:
+            get_translation = True
         
         # this operation does the same as 'get_sequence_context', except it will use exonic sequences to decide 
         if 'leftslop' in kwargs:
@@ -489,7 +530,7 @@ class mutation:
         # 4. This function won't return anything -- it will just update the mutant_sequence_context and wt_sequence_context attributes 
         
         # 1. get adjacent annotations
-        adjacent_annot = self.get_adjacent_annotations(leftslop,rightslop)
+        adjacent_annot = self.get_adjacent_annotations(leftslop,rightslop,**kwargs)
         print(adjacent_annot,"adjacent_annot") # THIS WORKS
         
         # 1 and 2. get the adjacent sequences...
@@ -497,14 +538,26 @@ class mutation:
         mut_running = ''
         seq_contexts = []
         for i in adjacent_annot:
-            inseq = self.extract_sequence_at_annotations(i,leftslop=leftslop,rightslop=rightslop) # CHECK THIS...
+            inseq,strand_seq = self.extract_sequence_at_annotations(i,leftslop=leftslop,rightslop=rightslop) # CHECK THIS...
             print(inseq)
             if inseq is None:
                 print(self,"no annotation sequence found...")
+                return
             # 3. fish out the wt sequence and the mutated wt
             i_wt,i_mut = self.mutate_sequence(seq=inseq,
                                               left_slop=leftslop,
                                               right_slop=rightslop)
+            if strand_seq == '-':
+                print("getting reverse-complement of sequences...",i_wt,i_mut)
+                i_wt_temp = nmersub.reverse_seq(i_wt)
+                i_wt = nmersub.complement_seq(i_wt_temp)
+                i_mut_temp = nmersub.reverse_seq(i_mut)
+                i_mut = nmersub.complement_seq(i_mut_temp)
+
+                print("wt and mut sequences are now stored as %s and %s"%(i_wt,i_mut))
+
+            
+            
             seq_contexts.append((i_wt,i_mut))
         # get unique sequences
         print(seq_contexts)
@@ -525,6 +578,79 @@ class mutation:
             
         # reduce the annot strands to uniques...
         self.annot_strand = list(set(self.annot_strand))
+        
+        # if translate...
+        if get_translation:
+            self.generate_translation(**kwargs)
+        
+        
+        # generate translation
+    def generate_translation(self,shear_translations=True,compare_mutant_wt=True,clip_at_stop_codons=False,reset_mutant_vs_wt_pairs=True,store_different_only=True,min_pep_len=7,**kwargs):
+        wt_peptides_full = []
+        mut_peptides_full = []
+    
+    
+        # here, generate the strand-aware sequences
+        for i in itertools.zip_longest(self.wt_sequence_context.split(','),
+                                       self.mutant_sequence_context.split(','), fillvalue=''):
+            
+            print("sequences to mutate:",i,"for",self.__str__())
+            
+            # wt sequence
+            if len(i[0]) >= 3:
+                wt_peptides,wt_frame_pos,wt_frames = tilepep.return_peptides(inseq=i[0])
+            else:
+                wt_peptides,wt_frame_pos,wt_frames = [],[],[]
+        
+            # mutant sequence
+            if len(i[1]) >= 3:
+                mut_peptides,mut_frame_pos,mut_frames = tilepep.return_peptides(inseq=i[1])
+            else:
+                mut_peptides,mut_frame_pos,mut_frames = [],[],[]
+        
+            # do we store the full frames or the sheared translations
+            if shear_translations:
+                wt_peptides_full += wt_peptides
+                mut_peptides_full += mut_peptides        
+            else:
+                wt_peptides_full += wt_frames
+                mut_peptides_full += mut_frames
+        
+        self.mutant_residue_context = mut_peptides_full
+        self.wt_residue_context = wt_peptides_full
+                
+        if compare_mutant_wt:
+            if reset_mutant_vs_wt_pairs:
+                self.mutant_vs_wt_pairs = []
+            # assemble pairs
+            # for i,j in itertools.zip_longest(mut_peptides_full,wt_peptides_full, fillvalue=''):
+            for i,j in zip(mut_peptides_full,wt_peptides_full):
+                peplen_list = list(itertools.zip_longest(i,j, fillvalue=''))
+                for a,b in peplen_list:
+                    # if we have to clip at stopcodons, then...
+                    print(a,b)
+                    if clip_at_stop_codons:
+                        a1 = a.split('*')[0]
+                        b1 = b.split('*')[0]
+                    else:
+                        a1 = a
+                        b1 = b
+                    n_differences = sum([1 for k in list(itertools.zip_longest(a1,b1, fillvalue='')) if k[0] != k[1]])
+                    print((a1,b1,a1==b1,n_differences))
+                    
+                    if n_differences == 0 and store_different_only:
+                        continue
+                        
+                    if len(a1) < min_pep_len and len(b1) < min_pep_len:
+                        continue
+                    
+                    # store unique pairings
+                    if (a1,b1) not in self.mutant_vs_wt_pairs:
+                        self.mutant_vs_wt_pairs.append((a1,b1,n_differences))
+                    
+                    # obj.mutant_vs_wt_pairs.append((a1,b1,a1==b1,n_differences))
+
+        
 ####################
     
         

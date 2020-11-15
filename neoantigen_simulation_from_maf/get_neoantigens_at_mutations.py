@@ -3,6 +3,10 @@
 import os,sys,re
 import importlib
 import argparse
+import time
+
+# start timing
+start_time = time.time()
 
 # import the main function
 import mutant_neoantigen_simulation as neoa
@@ -42,11 +46,12 @@ mutant_file = neoa.mutation_set(intervals,
 # then, for each mutant, derive the annotation-defined sequence contexts
 # if annotation is specified, then get the annotation context
 if annot is not None:
-    mutant_file.get_seq_context_at_annot(equalslop=dist)
+    mutant_file.get_seq_context_at_annot(equalslop=dist,clip_at_stop_codons=True,store_different_only=True,remove_intersect_file_at_end=False)
     # translate the sequence contexts
     # mutant_file.get_translations_at_context()
 else:    
     mutant_file.get_seq_context(equalslop=dist)
+
 
 
 # finally, write out two separate tables -- mutants with sequence contexts, and mutants with pairs of peptides
@@ -62,6 +67,10 @@ with open(jobname+".mutation_sequence_contexts.txt",'w') as f, open(jobname+".mu
         if len(i.mutant_vs_wt_pairs) > 0:
             # only activate this option if we have reported mutant-vs-wt pairs
             for j in i.mutant_vs_wt_pairs:
-                a.write("\t".join(i.ccordinate) + "\t".join([str(k) for k in j]) + "\t".join([str(m) for m in i.metadata]) + "\n")
+                print(j)
+                a.write("\t".join(i.coordinate) + "\t" +  "\t".join([j[0],j[1],str(j[2])]) + "\t" + "\t".join([str(m) for m in i.metadata]) + "\n")
 
-# peptides
+# end time
+end_time = time.time()
+elapsed_time = end_time - start_time
+print("elapsed time in seconds for",jobname,elapsed_time)
