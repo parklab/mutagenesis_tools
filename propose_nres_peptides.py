@@ -56,7 +56,7 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
         start_codons_regex = '|'.join(['(?=('+str(i)+'))' for i in start_codon])
         start_seq_sites = [i.start() for i in re.finditer(start_codons_regex,inseq)]
         # if groups of start seq sites are within `start_seq_site_lim` bases of each other, pick the most upstream start site
-        
+
     else:
         start_seq_sites = [0]
     # search for stop-codon sequences
@@ -68,7 +68,7 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
         stop_seq_sites = [i.start()+3 for i in re.finditer(stop_codons_regex,inseq)] # add a 3 to provide the index after the stop codon ends
     else:
         stop_seq_sites = [len(inseq)]
-    
+
     # note that if we aren't looking for frames but would like to find an in-frame translation, adjust the start and stop sites accordingly so that we can get appropriate frames
     if not search_start_codons and not search_stop_codons:
         other_start = ((stop_seq_sites[0] - start_seq_sites[1]) % 3) - 1
@@ -76,13 +76,13 @@ def define_frames(inseq,search_start_codons=True,search_stop_codons=True,start_s
         start_seq_sites.append(other_start)
         stop_seq_sites.append(other_end)
     # print(start_seq_sites,stop_seq_sites)
-    
-    
+
+
     # search every combination of start and stop codons; keep frames that are divisible by 3.
     frame_positions = [(i,j) for i in start_seq_sites for j in stop_seq_sites if (j - i) % 3 == 0 and j > i]
     # print(frame_positions)
     frames = [inseq[i[0]:i[1]] for i in frame_positions]
-    
+
     return(frames)
 
 def write_peptides(peptide_array,name):
@@ -133,11 +133,11 @@ def define_peptides(inseq,name,peptide_lengths=[8,9,10,11],search_start_codons=T
         inseq_use = inseq
     inseq_frames = define_frames(inseq=inseq_use,search_start_codons=search_start_codons,search_stop_codons=search_stop_codons)
     # inseq_translated_frames = [translatstopgae_sequence(i) for i in inseq_frames]
-    
-    
+
+
     inseq_translated_frames = [translate_sequence(i) for i in inseq_frames]
-    
-    
+
+
     # omit polypeptides with more than two stop codons
     inseq_translated_frames = [i.strip("*") for i in inseq_translated_frames if len(re.findall(r'\*',i)) == 1]
     print("\t%d frames found"%len(inseq_translated_frames))
@@ -177,23 +177,24 @@ def main():
     inseq,inseqname = import_sequence(infa,concat_seq=False)
     infilename = os.path.basename(infa).split(".txt")[0] # infa.split(".fa")[0]
     print("\t ... defining peptides ... "),
-    
+
     # remove file if it exists
     filename="internal_frame_translations"
     if os.path.exists(filename+".fa"):
         os.remove(filename+".fa")
-    
-    
+
+
     ##
     # if we have multiple, then we don't concat
     if type(inseq) is list:
         for i,j in zip(inseq,inseqname):
             j_rename = "_".join(j.split(":"))
+            print(j_rename)
             inpeptides = define_peptides(inseq=i,name=j_rename,digest_peptides=False)
     else:
         inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False)
     ##
-    
+
     # inpeptides = define_peptides(inseq=inseq,name=infilename,digest_peptides=False)
     print("peptides obtained!")
 
@@ -203,6 +204,4 @@ if __name__ == "__main__":
 else:
     print("Imported \'propose_nres_peptides\'")
 
-# incorporte a function to just produce a translation and not to 
-    
-
+# incorporte a function to just produce a translation and not to
