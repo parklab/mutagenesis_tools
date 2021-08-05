@@ -129,12 +129,12 @@ class mutation:
 
     def as_cosmic_context(self):
         # set reverse-complement table
-        base_to_rc = {'A':'T','C':'G','G':'C','T':'A'}
+        base_to_rc = {'A':'T','C':'G','G':'C','T':'A','N':'N'}
         if self.ref in ['G','A']:
             print("converting to COSMIC six-channel C/T>N mutation...")
-            start_nt_context = ''.join([base_to_rc[j] for j in self.wt_sequence_context])
+            start_nt_context = ''.join([base_to_rc[j.upper()] for j in self.wt_sequence_context])
             start_nt_context = start_nt_context[::-1]
-            end_nt_context = ''.join([base_to_rc[j] for j in self.mutant_sequence_context])
+            end_nt_context = ''.join([base_to_rc[j.upper()] for j in self.mutant_sequence_context])
             end_nt_context = end_nt_context[::-1]
             self.wt_sequence_context = start_nt_context
             self.mutant_sequence_context = end_nt_context
@@ -153,9 +153,20 @@ class mutation:
         elif self.wt_sequence_context is not None and seq is None:
             seq = self.wt_sequence_context
 
-#         right_window = seq[::-1]
+        if 'verbose' in kwargs:
+            verbose = kwargs['verbose']
+        else:
+            verbose = False
+        if 'strand_aware' in kwargs:
+            strand_aware = kwargs['strand_aware']
+        else:
+            strand_aware = False
+        # print('strand awareness:',strand_aware)
+        # print('verbose',verbose)
 
-        print(seq,left_slop,right_slop,"seq to mutate")
+#         right_window = seq[::-1]
+        if verbose:
+            print(seq,left_slop,right_slop,"seq to mutate")
 
         # we need a different way to specify the left/right windows
         left_window = seq[:left_slop]
@@ -176,21 +187,24 @@ class mutation:
             right_window = seq[left_slop:] # to handle how insertions are coded
         ####
 
-
-        print("left_window",left_window,seq)
-        print("right_window",right_window,seq)
+        if verbose:
+            print("left_window",left_window,seq)
+            print("right_window",right_window,seq)
 
         if self.alt != '-':
-            print(left_window,"join with",self.alt,"and",right_window[len(self.ref):])
+            if verbose:
+                print(left_window,"join with",self.alt,"and",right_window[len(self.ref):])
 #             new_mutant_sequence = left_window + self.alt + right_window[1:] # should cover SNVs or truncations
             new_mutant_sequence = left_window + self.alt + right_window[len(self.ref):] # should cover SNVs or truncations
         else:
             # for deletions
-            print(left_window,"join with",right_window[len(self.ref):])
+            if verbose:
+                print(left_window,"join with",right_window[len(self.ref):])
 #             new_mutant_sequence = left_window + right_window[len(self.alt):] # should cover deletions
             new_mutant_sequence = left_window + right_window[len(self.ref):] # should cover deletions
 
-        print("New mutant sequence",new_mutant_sequence)
+        if verbose:
+            print("New mutant sequence",new_mutant_sequence)
 
         wtseq = seq
         mutseq = new_mutant_sequence
@@ -221,11 +235,24 @@ class mutation:
         else:
             use_cosmic = False
 
+        if 'verbose' in kwargs:
+            verbose = kwargs['verbose']
+        else:
+            verbose = False
+
+        # strand-aware?
+        if 'strand_aware' in kwargs:
+            strand_aware = kwargs['strand_aware']
+        else:
+            strand_aware = False
+        # print('strand awareness:',strand_aware)
+
         # only trigger "equalslop" if it is specified; otherwise, default to left/right slop
         if 'equalslop' in kwargs:
             leftslop = rightslop = int(kwargs['equalslop'])
-        print(leftslop,"leftslop")
-        print(rightslop,"rightslop")
+        if verbose:
+            print(leftslop,"leftslop")
+            print(rightslop,"rightslop")
 
         # add an option to return the sequence instead of altering the object attribute
         if 'return_sequence_only' in kwargs:
@@ -255,26 +282,30 @@ class mutation:
             coord = [self.contig,
                      self.pos[0] - leftslop - 1,
                      self.pos[1] + rightslop,
+                     self.name,
+                     '0',
                      self.strand] # because the command requires zero-based...
-
-        print(coord,"coord")
+        if verbose:
+            print(coord,"coord")
         coord = ' '.join([str(i) for i in coord])
+        # print("coord",coord)
         coord_bt = pbt.BedTool(coord,from_string=True)
 
         # second, set fasta
         fasta = pbt.example_filename(self.ref_genome)
 
         # now, read sequence
-        a = coord_bt.sequence(fi=fasta)
+        a = coord_bt.sequence(fi=fasta,s=strand_aware)
         a_fasta_out = open(a.seqfn).read()
         wt_seq = a_fasta_out.split("\n")[1]
         self.wt_sequence_context = wt_seq
+        # print("New sequence:",self.wt_sequence_context)
 
         # if we have specified an alt variant
         # print(self.wt_sequence_context,self.mutant_sequence_context)
         if self.alt is not None:
             # based on the alt, we will either remove the reference base, swap it for the alt base, or insert new bases
-            wt,mut = self.mutate_sequence(leftslop,rightslop)
+            wt,mut = self.mutate_sequence(leftslop,rightslop,strand_aware=strand_aware)
             if return_sequence_only:
                 return(wt,mut)
             else:
