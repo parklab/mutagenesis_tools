@@ -19,7 +19,8 @@ parser.add_argument('-i','--input',
 parser.add_argument('-m','--mutagenize',
                     help='Mutagenize. If this flag is specified, then regardless of what is specififed in the "alt" column of the bedfile, all possible mutations will be made ',action='store_true')
 parser.add_argument('--deletions',
-                    help='Make deletions. Specify this flag to indicate if you want to make deletions when you mutagenize. NOTE: we are only doing single-base deletions for now. This will only work if --mutagenize is specified.',action='store_true')
+                    help='Make deletions. Specify this flag along with a number to indicate if you want to make deletions (and at most how big) when you mutagenize. NOTE: we are only doing single-base deletions for now. This will only work if --mutagenize is specified.',action='store_true')
+                    # help='Make deletions. Specify this flag along with a number to indicate if you want to make deletions (and at most how big) when you mutagenize. NOTE: we are only doing single-base deletions for now. This will only work if --mutagenize is specified.',type=int,default=0)
 parser.add_argument('-a','--annotation',
                     help='Annotation file. Optional, but suggested if you want to conduct meaningful sequence translations.',type=str,default=None)
 parser.add_argument('-f','--fasta',
@@ -50,6 +51,7 @@ print(intervals,genomefa,annot,jobname,dist)
 if args.mutagenize:
     new_file = '.temp.bed'
     bases = ['A','C','G','T']
+    # if args.deletions > 0:
     if args.deletions:
         bases += '-'
         print('Mutagenize flag specified -- making all single-base substitutions and single-base deletions')
@@ -64,6 +66,16 @@ if args.mutagenize:
                 new_line = line
                 new_line[4] = j
                 g.write('\t'.join(new_line) + '\n')
+            # note -- if you want to make longer deletions, then you need to adjust the reference allele accordingly
+            # maybe add a flag to infer reference allele from the coordinates given?
+            # now, for the length of deletions
+            # if args.deletions > 1:
+            #     for i in range(1,args.deletions):
+            #         new_line = line
+            #         new_line[2] = str(int(new_line[2]) + i)
+            #         new_line[4] = '-'
+            #         g.write('\t'.join(new_line) + '\n')
+
     intervals = os.getcwd() + '/' + new_file
 else:
     print('Mutagenize flag not specified -- proceeding with specified BED file')

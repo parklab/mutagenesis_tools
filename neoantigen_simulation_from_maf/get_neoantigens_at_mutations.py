@@ -24,6 +24,9 @@ parser.add_argument('-n','--name',
                     help='Job name. DEFAULT: job',type=str,default="job")
 parser.add_argument('-d','--distance',
                     help='Distance on either side of the mutation to extract sequence context. DEFAULT: 36 bases',type=int,default=36)
+parser.add_argument('-j','--jobs',
+                    help='Number of jobs to run in parallel',type=int,default=10)
+
 
 args = parser.parse_args()
 

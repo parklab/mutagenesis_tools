@@ -295,7 +295,7 @@ class mutation:
         fasta = pbt.example_filename(self.ref_genome)
 
         # now, read sequence
-        a = coord_bt.sequence(fi=fasta,s=strand_aware)
+        a = coord_bt.sequence(fi=fasta,s=False)
         a_fasta_out = open(a.seqfn).read()
         wt_seq = a_fasta_out.split("\n")[1]
         self.wt_sequence_context = wt_seq
@@ -305,12 +305,21 @@ class mutation:
         # print(self.wt_sequence_context,self.mutant_sequence_context)
         if self.alt is not None:
             # based on the alt, we will either remove the reference base, swap it for the alt base, or insert new bases
-            wt,mut = self.mutate_sequence(leftslop,rightslop,strand_aware=strand_aware)
+            wt,mut = self.mutate_sequence(leftslop,rightslop)
             if return_sequence_only:
                 return(wt,mut)
             else:
                 self.wt_sequence_context = wt
                 self.mutant_sequence_context = mut
+
+        # if strand-aware, then...
+        if strand_aware and self.strand == '-':
+            # print("printing out negative strand...")
+            wt_temp = nmersub.complement_seq(nmersub.reverse_seq(self.wt_sequence_context))
+            mut_temp = nmersub.complement_seq(nmersub.reverse_seq(self.mutant_sequence_context))
+            # print(self.wt_sequence_context,wt_temp)
+            self.wt_sequence_context = wt_temp
+            self.mutant_sequence_context = mut_temp
 
         if use_cosmic:
             self.as_cosmic_context()
