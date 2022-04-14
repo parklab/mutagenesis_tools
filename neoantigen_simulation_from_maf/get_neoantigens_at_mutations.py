@@ -28,6 +28,9 @@ parser.add_argument('-j','--jobs',
                     help='Number of jobs to run in parallel',type=int,default=10)
 
 
+# add an option to handle a zero-based coordinates
+
+
 args = parser.parse_args()
 
 print("Arguments:")
