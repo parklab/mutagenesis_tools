@@ -338,16 +338,17 @@ class mutation:
         else:
             remove_intersect_file_at_end = False # True
 
-        # first, format the mutation position into a bedfile and calculate the intersection
-        # coord = [self.contig,
-        #          self.pos[0] - leftslop,
-        #          self.pos[1] + rightslop + 1,
-        #          self.strand]
+        # first, format the mutation position into a bedfile and get the exon(s) which intersect with the mutation
         coord = [self.contig,
                  self.pos[0] - leftslop - 1,
                  self.pos[1] + rightslop,
-                 self.strand] # because the command requires zero-based...
+                 self.strand] # because the command requires zero-based... # this can occasionally get truncated exons not immediately affected by the mutation
+        coord = [self.contig,
+                 self.pos[0] - 1,
+                 self.pos[1],
+                 self.strand] # because the command requires zero-based... # this only focuses on which exons touch the mutation
 
+        # the below code will get the exons that intersect with this mutation
         coordentry = ' '.join([str(i) for i in coord])
         coordname = '_'.join([str(i) for i in coord])
         tempcoordbed = '.temp.'+coordname+'.bed'
@@ -356,8 +357,7 @@ class mutation:
         coord_bt.intersect(self.gtf,wb=True).saveas(tempcoordbedintersect)
 
         # second, call the sets of adjacent annotations and read them in
-#         print(' '.join([adjacent_annot,tempcoordbedintersect,self.gtf,coordname]))
-        bashCommand = ['bash',adjacent_annot,tempcoordbedintersect,self.gtf,coordname] # this line generates all of the files
+        bashCommand = ['bash',adjacent_annot,tempcoordbedintersect,self.gtf,coordname,'1'] # this line generates all of the files # this will get all annotations
         try:
             output = subprocess.call(bashCommand)
             annot_files = glob.glob('.temp.'+coordname+'.[0-9].bed') # this line recovers all of the beds
@@ -377,10 +377,6 @@ class mutation:
         # steps
         # 1. separate the interval that intersects the mutation from the interval that does not (these should be adjacent)
         # coord
-        # coord = [self.contig,
-        #          self.pos[0],
-        #          self.pos[1] + 1,
-        #          self.strand]
         coord = [self.contig,
                  self.pos[0] - 1,
                  self.pos[1],
@@ -403,7 +399,7 @@ class mutation:
         annot_bt = pbt.BedTool(infile)
         print(annot_bt)
         print(infile,'annot going into the intersect-for-annotation')
-        annot_intersect = annot_bt.intersect(coord_bt,wa=True)
+        annot_intersect = annot_bt.intersect(coord_bt,wa=True) # the exon that overlaps with the interval
         annot_adjacent = annot_bt.intersect(coord_bt,wa=True,v=True)
 
         # let's check why these coordinates failed...
@@ -430,11 +426,9 @@ class mutation:
         get_right_adjacent = 0
         annot_intersect_strand = annot_intersect[0][4]
         print(annot_intersect_strand,"annot_intersect_strand")
-#         self.annot_strand.append(annot_intersect_strand)
 
-#         print(slopped_coord,annot_intersect[0],"slop -vs- intersected annot")
-        if slopped_coord[1] < int(annot_intersect[0][1]):
-            print("slopped interval is left-bounded") # in essence, the slopped-coordinate is broader than the left-most exon, so we need to trim the slopped coordinate on the left-end
+        if slopped_coord[1] < int(annot_intersect[0][1]): # in essence -- is the slopped window smaller than the current exon? if so, then
+            print("slopped interval is left-bounded by the current ") # in essence, the slopped-coordinate is broader than the left-most exon, so we need to trim the slopped coordinate on the left-end
             get_left_adjacent = abs(slopped_coord[1] - int(annot_intersect[0][1]))
             # actually, set the strand to the current mutation...
             seq = [slopped_coord[0],str(int(annot_intersect[0][1]) - 1),slopped_coord[2],annot_intersect_strand] # turning this into a zero-based coordinate
@@ -514,7 +508,7 @@ class mutation:
         print(seq_total,"seq_total");
         # get the strand of the annotations...
         annot_strand_to_use = list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
-        print(annot_strand_to_use,"annot_strand before filtering...")
+        # print(annot_strand_to_use,"annot_strand before filtering...")
         annot_strand_to_use = [i for i in self.annot_strand if i != '']
         print(annot_strand_to_use,"annot_strand")
         self.annot_strand += annot_strand_to_use # list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
@@ -562,9 +556,201 @@ class mutation:
         print(seq_total_fa[1:100],'seq_to_return')
         print(annot_intersect_strand,'annot_intersect_strand')
         return(seq_total_fa,annot_intersect_strand)
-
-
         # the parent function 'get_sequence_context_at_annotation' will then run the mutate_sequence operation to simulate mutant
+
+
+    def extract_sequence_at_annotations_revised(self,infile,leftslop,rightslop,remove_infile_at_end=False):
+
+        # infile is the bedfile of the intervals containing the mutation and the adjacent event(s)
+        # steps
+        # 1. separate the interval that intersects the mutation from the interval that does not (these should be adjacent)
+        # coord
+        coord = [self.contig,
+                 self.pos[0] - 1,
+                 self.pos[1],
+                 self.strand] # make into zero-based
+        coord = [self.contig,
+                 self.pos[0] - 1,
+                 self.pos[1],
+                 '.'] # make into zero-based
+
+
+        print(coord,infile,"file to use")
+        coordentry = ' '.join([str(i) for i in coord])
+        print(coordentry,'coord going into the intersect-for-annotation')
+        coord_bt = pbt.BedTool(coordentry,from_string=True)
+        print(coord_bt)
+        print('post bedfile coord going into the intersect-for-annotation')
+
+        # slopped-coord
+        slopped_coord = [self.contig,
+                 self.pos[0] - leftslop - 1,
+                 self.pos[1] + rightslop,
+                 self.strand] # because the command requires zero-based...
+        slopped_coord = [self.contig,
+                 self.pos[0] - leftslop - 1,
+                 self.pos[1] + rightslop,
+                 '.'] # because the command requires zero-based...
+
+
+        # annotation
+        annot_bt = pbt.BedTool(infile)
+        print(annot_bt)
+        print(infile,'annot going into the intersect-for-annotation')
+        annot_intersect = annot_bt.intersect(coord_bt,wa=True) # the exon that overlaps with the interval
+        annot_adjacent = annot_bt.intersect(coord_bt,wa=True,v=True)
+
+        # make sure we haven't encountered any annotation failures...
+        if len(annot_intersect) == 0 or annot_intersect == ' ' or annot_intersect == '':
+            print(annot_intersect,"Error: no intersection with annotation found for %s. Defaulting to genome context..."%self.__repr__())
+            print(len(annot_intersect))
+            # add the option to get the wt-context from genome here and do the mutation...
+            print("===")
+            return(None,None)
+        else:
+            print(infile,'passes the intersect-for-annotation')
+
+        if annot_intersect[0][0] != self.contig:
+            print("Error: contigs mismatch")
+            return(None,None)
+        else:
+            print("contigs match %s and %s"%(annot_intersect[0][0],self.contig)) # this works...
+        ### MAY 7, 2022: THE ABOVE WORKS; IT IS NOT THE CAUSE FOR WHY SVS GET 'LOST' FROM THE SEQUENCES
+        #
+        # 2. for the current intersected interval -- if the slopped coordinate is still smaller than the current exon, curtail the sequence
+        # note that we have just one annotation file here...
+        # set the left-window coordinates
+        window_coordinates = [coord]
+        left_stop = False
+        if int(slopped_coord[1]) > int(annot_intersect[0][1]):
+            print('the left hand side of the current intersected exon is sufficient')
+            window_coordinates = [[slopped_coord[0],slopped_coord[1],coord[1],annot_intersect[0][4]]] + window_coordinates
+            left_stop = True
+        else:
+            window_coordinates = [[slopped_coord[0],annot_intersect[0][1],coord[1],annot_intersect[0][4]]] + window_coordinates # add the rest of the left-hand side of the window
+            budget = leftslop - (int(coord[1]) - int(annot_intersect[0][1]))
+            # what coordinates do we need
+            left_intervals_to_store = []
+            left_intervals_to_use = [i for i in annot_adjacent if int(i[2]) < int(annot_intersect[0][1])]
+            # now, loop...
+            while budget > 0 and len(left_intervals_to_use) > 0: # while we still have a budget...
+            # while budget > 0 or len(left_intervals_to_use) > 0: # while we still have a budget...
+                print('current set of left intervals:',left_intervals_to_use,'budget so far',budget)
+                current_intvl_len = int(left_intervals_to_use[-1][2]) - int(left_intervals_to_use[-1][1])
+                if current_intvl_len <= budget:
+                    coord_to_store = [left_intervals_to_use[-1][0],
+                                      str(left_intervals_to_use[-1][1]),
+                                      str(left_intervals_to_use[-1][2]),
+                                      left_intervals_to_use[-1][4]]
+                    budget -= current_intvl_len
+                else:
+                    coord_to_store = [left_intervals_to_use[-1][0],
+                                      str(int(left_intervals_to_use[-1][2]) - budget - 1),
+                                      str(left_intervals_to_use[-1][2]),
+                                      left_intervals_to_use[-1][4]]
+                    budget -= budget
+                left_intervals_to_store.append(coord_to_store)
+                left_intervals_to_use = left_intervals_to_use[:-1]
+            left_stop = True
+            left_intervals_to_use = left_intervals_to_use[::-1]
+            window_coordinates = left_intervals_to_use + window_coordinates
+
+        # set the right-window coordinates
+        right_stop = False
+        if int(slopped_coord[2]) < int(annot_intersect[0][2]):
+            print('the right hand side of the current intersected exon is sufficient')
+            window_coordinates = window_coordinates + [[slopped_coord[0],coord[2],slopped_coord[2],annot_intersect[0][4]]]
+            right_stop = True
+        else:
+            window_coordinates = window_coordinates + [[slopped_coord[0],coord[2],annot_intersect[0][2],annot_intersect[0][4]]] # add the rest of the left-hand side of the window
+            budget = rightslop - (int(annot_intersect[0][2]) - int(coord[2]))
+            # what coordinates do we need
+            right_intervals_to_store = []
+            right_intervals_to_use = [i for i in annot_adjacent if int(i[1]) > int(annot_intersect[0][2])]
+            # now, loop...
+            while budget > 0 and len(right_intervals_to_use) > 0: # while we still have a budget...
+            # while budget > 0 or len(right_intervals_to_use) > 0: # while we still have a budget...
+                current_intvl_len = int(right_intervals_to_use[-1][2]) - int(right_intervals_to_use[-1][1])
+                print('current set of right intervals:',right_intervals_to_use,'budget so far',budget)
+                if current_intvl_len <= budget:
+                    coord_to_store = [right_intervals_to_use[-1][0],
+                                      str(right_intervals_to_use[-1][1]),
+                                      str(right_intervals_to_use[-1][2]),
+                                      right_intervals_to_use[-1][4]]
+                    budget -= current_intvl_len
+                else:
+                    coord_to_store = [right_intervals_to_use[-1][0],
+                                      str(int(right_intervals_to_use[-1][1])),
+                                      str(int(right_intervals_to_use[-1][2]) - budget),
+                                      right_intervals_to_use[-1][4]]
+                    budget -= budget
+                right_intervals_to_store.append(coord_to_store)
+                right_intervals_to_use = right_intervals_to_use[:-1]
+            right_stop = True
+            window_coordinates = window_coordinates + right_intervals_to_store
+
+        if right_stop and left_stop:
+            seq_total = window_coordinates
+        print(seq_total,"seq_total");
+
+        # conert everything to str
+        seq_total = [[str(j) for j in i] for i in seq_total]
+
+        # get the strand of the annotations...
+        annot_strand_to_use = list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
+        print(annot_strand_to_use,"annot_strand before filtering...")
+        # annot_strand_to_use = [i for i in self.annot_strand if i != '']
+        annot_intersect_strand = annot_strand_to_use[0]
+        print(annot_intersect_strand,"annot_strand")
+        self.annot_strand += annot_intersect_strand # list(set([i[-1] for i in seq_total if i[-1] != '.'] or i[-1] != ''))
+        # annot_strand_to_use = annot_strand_to_use[0]
+        # self.annot_strand = [i for i in self.annot_strand if i != '']
+
+        seq_total = [' '.join(i) for i in seq_total if i != ['']]
+        print(seq_total,'sequ_total_to_infer')
+        seq_total_fa = ''
+        for i in seq_total:
+            # coord bedpt
+            coord_bt = pbt.BedTool(i,from_string=True)
+            print("\t\t\t\t\tprocessing sequence...")
+            print(coord_bt,'sequence_to_obtain')
+            # set fasta
+            fasta = pbt.example_filename(self.ref_genome)
+            # now, read sequence
+            try:
+                a = coord_bt.sequence(fi=fasta) # bug is somewhere here
+            except:
+                print("cannot extract a sequence for %s. Skipping..."%i)
+                continue
+            a_fasta_out = open(a.seqfn).read()
+            print(a_fasta_out)
+            print(a_fasta_out[:10],'sequence obtained by bedtools for for',i)
+            wt_seq = a_fasta_out.split("\n")[1]
+            # mutant sequence
+            seq_total_fa += wt_seq
+
+        # if the strand is negative, get the reverse-complement
+        # if annot_strand_to_use[0] == '-':
+        # if annot_intersect_strand == '-':
+        #     print("getting reverse-complement of sequence...")
+        #     seq_total_fa_final_temp = nmersub.reverse_seq(seq_total_fa)
+        #     seq_total_fa_final = nmersub.complement_seq(seq_total_fa_final_temp)
+        #     print("wt sequence %s is now stored as %s"%(seq_total_fa,seq_total_fa_final))
+        # else:
+        #     seq_total_fa_final = seq_total_fa
+
+        # Finally, we need to clean up the temporary bed files to prevent over-cluttering if specified
+        if remove_infile_at_end:
+            print("removing %s"%infile)
+            rmcommand = ['rm',infile]
+            subprocess.call(rmcommand)
+        print(seq_total_fa[1:100],'seq_to_return')
+        print(annot_intersect_strand,'annot_intersect_strand')
+        return(seq_total_fa,annot_intersect_strand)
+
+
+
+
 
 
 
@@ -632,27 +818,28 @@ class mutation:
                 for j in f:
                     print(j,i,'line from file')
             print("==========888888888888==========888888888888==========888888888888==========888888888888==========888888888888==========888888888888==========888888888888==========888888888888==========888888888888==========888888888888")
-            inseq,strand_seq = self.extract_sequence_at_annotations(i,leftslop=leftslop,rightslop=rightslop) # CHECK THIS...
+            # inseq,strand_seq = self.extract_sequence_at_annotations(i,leftslop=leftslop,rightslop=rightslop) # CHECK THIS...
+            inseq,strand_seq = self.extract_sequence_at_annotations_revised(i,leftslop=leftslop,rightslop=rightslop) # CHECK THIS revision
             print(self.__repr__(),inseq,'obtained sequence -- is it none') # BUG HAS OCCURRED BY HERE -- NO ANNOTATION SEQUENCE FOUND
             print(strand_seq,'obtained sequence -- is it none') # BUG HAS OCCURRED BY HERE -- NO ANNOTATION SEQUENCE FOUND
             print("==========777777777777==========777777777777==========777777777777==========777777777777==========777777777777==========777777777777==========777777777777==========777777777777==========777777777777==========777777777777")
             # if inseq is None and self.wt_sequence_context is not None:
             if inseq is None:
                 print(self,"no annotation sequence found...")
-                return
-            # 3. fish out the wt sequence and the mutated wt
-            i_wt,i_mut = self.mutate_sequence(seq=inseq,
-                                              left_slop=leftslop,
-                                              right_slop=rightslop)
-            if strand_seq == '-':
-                print("getting reverse-complement of sequences...",i_wt,i_mut)
-                i_wt_temp = nmersub.reverse_seq(i_wt)
-                i_wt = nmersub.complement_seq(i_wt_temp)
-                i_mut_temp = nmersub.reverse_seq(i_mut)
-                i_mut = nmersub.complement_seq(i_mut_temp)
+            else:
+                # 3. fish out the wt sequence and the mutated wt
+                i_wt,i_mut = self.mutate_sequence(seq=inseq,
+                                                  left_slop=leftslop,
+                                                  right_slop=rightslop)
+                if strand_seq == '-':
+                    print("getting reverse-complement of sequences...",i_wt,i_mut)
+                    i_wt_temp = nmersub.reverse_seq(i_wt)
+                    i_wt = nmersub.complement_seq(i_wt_temp)
+                    i_mut_temp = nmersub.reverse_seq(i_mut)
+                    i_mut = nmersub.complement_seq(i_mut_temp)
 
-                print("wt and mut sequences are now stored as %s and %s"%(i_wt,i_mut))
-            seq_contexts.append((i_wt,i_mut))
+                    print("wt and mut sequences are now stored as %s and %s"%(i_wt,i_mut))
+                seq_contexts.append((i_wt,i_mut))
         # get unique sequences
         print(seq_contexts)
         seq_contexts = set(seq_contexts)

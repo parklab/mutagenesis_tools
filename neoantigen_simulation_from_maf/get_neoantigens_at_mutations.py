@@ -9,7 +9,7 @@ import time
 start_time = time.time()
 
 # import the main function
-import mutant_neoantigen_simulation as neoa
+import mutant_neoantigen_simulation_dev as neoa
 
 # set up argparse
 # place an argparse interface here
