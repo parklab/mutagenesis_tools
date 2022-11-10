@@ -3,3 +3,5 @@ neoantigen_simulation_from_maf/for_ebi/
 neoantigen_simulation_from_maf/for_sv_tx_paper/
 ._*
 __pycache__/
+cached_old/
+original_scripts/
