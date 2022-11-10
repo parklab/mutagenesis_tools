@@ -1,4 +1,0 @@
-nsamplequeue	10
-blastdb	/n/data1/hms/dbmi/park/vinay/referenceGenomes/blastdb/ensembl_reference/Homo_sapiens.GRCh37.dna_ensembl
-evalue	1e-5
-splitlines	5000
