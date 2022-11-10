@@ -16,11 +16,36 @@ This pipeline is meant to run on computing clusters using SLURM -- it submits in
 
 # Instructions
 
+You can clone this repository 
+
 ## Setting up the config file
+
+First, you will need to set up your config file to store various parameters for the run. You can find a sample config file in the repository
+
+```
+$ cat config.simulate_neoantigens.test.txt
+splitlines      50
+exongtf ./Homo_sapiens.GRCh37.75.exon.gtf
+genegtf ./Homo_sapiens.GRCh37.75.gene.gtf
+genomefa        ./genome.fa
+sloplen 36
+corescript      ./core_calculate_neoantigens_from_maf.sh
+```
+
+1. `splitlines` will break up the input file of VCFs (see below) into batches, each `splitlines` long
+2. `exongtf` is the GTF of annotated exons
+3. `genegtf` is the GTF of annotated genes
+4. `genomefa` is the FASTA of genomes
+5. `sloplen` gives the # of nucleotides in each direction of the variant to capture for translation
+6. `corescript` this is the core script that will be run on eacf VCF. Default is the `core_calculate_neoantigens_from_maf.sh` script -- make sure that the path to this script is appropriate
 
 ## Setting up the input file
 
 ## Submitting the job
+
+## Once the jobs are done, produce the wt-vs-mutant peptide comparison file
+
+## test MHC-peptide affinity changes
 
 # Forthcoming modifications
 

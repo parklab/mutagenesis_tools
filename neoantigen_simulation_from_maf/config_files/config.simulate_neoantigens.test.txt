@@ -1,0 +1,6 @@
+splitlines	50
+exongtf	/n/data1/hms/dbmi/park/vinay/referenceAnnotation/hg19/Homo_sapiens.GRCh37.75.exon.gtf
+genegtf	/n/data1/hms/dbmi/park/vinay/referenceAnnotation/hg19/Homo_sapiens.GRCh37.75.gene.gtf
+genomefa	/n/data1/hms/dbmi/park/vinay/referenceGenomes/pcawg/reference/homo_sapiens/genome.fa
+sloplen	36
+corescript	/n/data1/hms/dbmi/park/vinay/pipelines/mutagenesis/neoantigen_simulation_from_maf/core_calculate_neoantigens_from_maf.sh

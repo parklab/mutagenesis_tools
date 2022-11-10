@@ -1,0 +1,4 @@
+corescript	/n/data1/hms/dbmi/park/vinay/pipelines/pMHC_prediction/core_netmhcpan_mutant_vs_wt.revised.sh
+splitlines	10
+peplenmin	8
+neoantigen_mutant_wt_file	/n/data1/hms/dbmi/park/vinay/analysis/tcga_neoA_analysis/snv_indel_cn_analysis/20200918_revisit/20201115_redo_mhc/setup_20220506_newsamples/additional_samples_master_mutant_vs_wt.with_hla.txt
